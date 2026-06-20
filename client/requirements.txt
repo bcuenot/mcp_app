@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+httpx
+pydantic
+langchain
+langchain-google-genai
+langchain-mcp-adapters
+langgraph
+python-dotenv
+PyJWT[crypto]
+SQLAlchemy
+psycopg[binary]
