@@ -1,0 +1,7 @@
+http://chat.localhost {
+    reverse_proxy streamlit:8501
+}
+
+http://auth.localhost {
+    reverse_proxy keycloak:8080
+}

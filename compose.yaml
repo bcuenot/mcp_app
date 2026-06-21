@@ -1,14 +1,27 @@
 services:
+
+  reverse-proxy:
+    image: caddy:2
+    ports:
+      - "127.0.0.1:80:80"
+    volumes:
+      - ./Caddyfile.local:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - streamlit
+      - keycloak
+    restart: unless-stopped
+    networks:
+      - edge
   keycloak:
     image: quay.io/keycloak/keycloak:26.6.2
     command: start-dev
-    ports:
-      - "127.0.0.1:8080:8080"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       KC_HOSTNAME: ${KC_HOSTNAME}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
 
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME}
@@ -21,7 +34,9 @@ services:
 
     restart: unless-stopped
     networks:
-      - internal
+      - edge
+      - auth
+      - data
   
   postgres:
     image: postgres:16
@@ -42,14 +57,14 @@ services:
       retries: 10
     restart: unless-stopped
     networks:
-      - internal
+      - data
 
   mcp-server:
     build:
       context: ./server
       dockerfile: Dockerfile
     environment:
-      KEYCLOAK_JWKS_URI: http://keycloak:8080/realms/mcp-realm/protocol/openid-connect/certs
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
       MCP_AUDIENCE: ${MCP_AUDIENCE}
       MCP_HOST: 0.0.0.0
@@ -58,7 +73,8 @@ services:
       - keycloak
     restart: unless-stopped
     networks:
-      - internal
+      - mcp
+      - auth
 
   mcp-client:
     build:
@@ -66,10 +82,11 @@ services:
       dockerfile: Dockerfile
     environment:
       GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      MCP_CLIENT_SECRET: ${MCP_CLIENT_SECRET}
       MCP_SERVER_URL: ${MCP_SERVER_URL}
+
       KEYCLOAK_TOKEN_URL: ${KEYCLOAK_TOKEN_URL}
       MCP_CLIENT_ID: ${MCP_CLIENT_ID}
+      MCP_CLIENT_SECRET: ${MCP_CLIENT_SECRET}
       MCP_SERVER_AUDIENCE: ${MCP_SERVER_AUDIENCE}
 
       KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI}
@@ -87,14 +104,15 @@ services:
       
     restart: unless-stopped
     networks:
-      - internal
+      - app
+      - mcp
+      - auth
+      - data
 
   streamlit:
     build:
       context: ./streamlit_app
       dockerfile: Dockerfile
-    ports:
-      - "127.0.0.1:8501:8501"
     environment:
       MCP_CLIENT_API_URL: ${MCP_CLIENT_API_URL}
     volumes:
@@ -103,8 +121,18 @@ services:
       - mcp-client
     restart: unless-stopped
     networks:
-      - internal
+      - edge
+      - app
+      - auth
 
 networks:
-  internal:
+  edge:
+    driver: bridge
+  app:
+    driver: bridge
+  mcp:
+    driver: bridge
+  auth:
+    driver: bridge
+  data:
     driver: bridge
