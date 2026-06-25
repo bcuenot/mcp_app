@@ -4,11 +4,20 @@
 !.env.example
 **/.streamlit/secrets.toml
 
+# Côté prod
+.env.prod
+secrets/
+data/
+postgres-init/
+compose.prod.yaml
+Caddyfile.prod
+
 # Données locales
 keycloak-data/
 keycloak-data-backup/
 keycloak-export/
 data/
+Rapports/
 *.db
 *.sqlite
 *.sqlite3
