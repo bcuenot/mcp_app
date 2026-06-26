@@ -8,9 +8,7 @@
 .env.prod
 secrets/
 data/
-postgres-init/
-compose.prod.yaml
-Caddyfile.prod
+backups/
 
 # Données locales
 keycloak-data/

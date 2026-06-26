@@ -1,0 +1,150 @@
+services:
+
+  reverse-proxy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - streamlit
+      - keycloak
+    restart: unless-stopped
+    networks:
+      - edge
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.2
+    command: start
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      JAVA_OPTS_KC_HEAP: "-XX:InitialRAMPercentage=10 -XX:MinRAMPercentage=10 -XX:MaxRAMPercentage=35"
+      KC_HOSTNAME: ${KC_HOSTNAME}
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - edge
+      - auth
+      - data
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD}
+
+      APP_DB_NAME: ${APP_DB_NAME}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+
+      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d postgres"
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - data
+
+  mcp-server:
+    image: ghcr.io/bcuenot/mcp-app-mcp-server:${IMAGE_TAG}
+    environment:
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      MCP_AUDIENCE: ${MCP_AUDIENCE}
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: ${MCP_PORT}
+    depends_on:
+      keycloak:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - mcp
+      - auth
+
+  mcp-client:
+    image: ghcr.io/bcuenot/mcp-app-mcp-client:${IMAGE_TAG}
+    environment:
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      MCP_CLIENT_SECRET: ${MCP_CLIENT_SECRET}
+      MCP_SERVER_URL: ${MCP_SERVER_URL}
+      KEYCLOAK_TOKEN_URL: ${KEYCLOAK_TOKEN_URL}
+      MCP_CLIENT_ID: ${MCP_CLIENT_ID}
+      MCP_SERVER_AUDIENCE: ${MCP_SERVER_AUDIENCE}
+
+      KEYCLOAK_JWKS_URI: ${KEYCLOAK_JWKS_URI}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
+      MCP_CLIENT_AUDIENCE: ${MCP_CLIENT_AUDIENCE}
+
+      DATABASE_URL: postgresql+psycopg://${APP_DB_USER}:${APP_DB_PASSWORD}@postgres:5432/${APP_DB_NAME}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      keycloak:
+        condition: service_started
+      mcp-server:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app
+      - mcp
+      - auth
+      - data
+
+  streamlit:
+    image: ghcr.io/bcuenot/mcp-app-streamlit:${IMAGE_TAG}
+    environment:
+      MCP_CLIENT_API_URL: ${MCP_CLIENT_API_URL}
+    volumes:
+      - ./secrets/streamlit-secrets.prod.toml:/app/.streamlit/secrets.toml:ro
+    depends_on:
+      - mcp-client
+    restart: unless-stopped
+      - edge
+      - app
+      - auth
+
+networks:
+  edge:
+    driver: bridge
+
+  app:
+    driver: bridge
+
+  mcp:
+    driver: bridge
+
+  auth:
+    driver: bridge
+
+  data:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
