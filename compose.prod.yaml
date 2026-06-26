@@ -125,6 +125,7 @@ services:
     depends_on:
       - mcp-client
     restart: unless-stopped
+    networks:
       - edge
       - app
       - auth
