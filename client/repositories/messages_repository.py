@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 class MessageRepository:
 
-    def get_messages_summaries_by_user_id(self, database : Session, conversation_id : str, user_id : str) -> list[Message]:
+    def get_messages_by_conversation_id(self, database : Session, conversation_id : str, user_id : str) -> list[Message]:
         statement = (
             select(Message)
             .join(Conversation)

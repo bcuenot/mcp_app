@@ -3,6 +3,8 @@ import os
 from langchain.agents import create_agent
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
+from models.message import MessageRole
+from models.message import Message
 
 
 class AgentServiceError(Exception):
@@ -16,8 +18,10 @@ class AgentService:
         mcp_server_url: str | None = None,
         model: str | None = None,
         temperature: float | None = None,
+        max_history_messages : int | None = 20,
         system_prompt: str = (
             "Tu es un assistant utile. "
+            "Tu vas reçevoir un message ainsi que l'historique des messages d'avant."
             "Tu peux utiliser les outils MCP disponibles "
             "quand c'est pertinent. "
             "Réponds en français."
@@ -26,6 +30,7 @@ class AgentService:
         google_api_key = google_api_key or os.environ["GOOGLE_API_KEY"]
         self.mcp_server_url = mcp_server_url or os.environ["MCP_SERVER_URL"]
         self.system_prompt = system_prompt
+        self.max_history_messages = max_history_messages
         model_name = model or os.getenv("LLM_MODEL","gemini-2.5-flash")
         model_temperature = (
             temperature
@@ -53,6 +58,42 @@ class AgentService:
                 }
             }
         )
+    
+    def _build_agent_messages(self, message : str, history_messages : list[Message]) -> list[dict[str, str]]:
+        
+        history_messages = history_messages[-self.max_history_messages:]
+        allowed_roles = {
+                MessageRole.USER.value,
+                MessageRole.ASSISTANT.value
+            }
+
+        agent_messages : list[dict[str, str]] = []
+
+        for history_message in history_messages:
+            role : str = history_message.role
+            content : str = history_message.content
+
+            if role not in allowed_roles:
+                continue
+            
+            if not content:
+                continue
+            
+            agent_messages.append(
+                {
+                    "role" : role,
+                    "content" : content,
+                }
+            )
+        
+        agent_messages.append(
+            {
+                "role" : MessageRole.USER.value,
+                "content" : message,
+            }
+        )
+
+        return agent_messages
 
     @staticmethod
     def _extract_response_text(response: dict) -> str:
@@ -81,20 +122,16 @@ class AgentService:
 
         return str(content)
 
-    async def ask(self, message: str, mcp_access_token: str) -> str:
+    async def ask(self, message: str, history_messages : list[Message], mcp_access_token: str) -> str:
         try:
-            client = self._build_mcp_client(mcp_access_token)
+            client : MultiServerMCPClient = self._build_mcp_client(mcp_access_token)
             tools = await client.get_tools()
             agent = create_agent(self._llm, tools=tools, system_prompt=self.system_prompt)
-        
-            response = await agent.ainvoke(
+
+            agent_messages : list[dict[str, str]] = self._build_agent_messages(message=message, history_messages=history_messages)
+            response : dict = await agent.ainvoke(
                 {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": message,
-                        }
-                    ]
+                    "messages": agent_messages
                 }
             )
 

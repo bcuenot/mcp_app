@@ -9,7 +9,7 @@ class MessagesService:
         self.repository = message_repository or MessageRepository()
 
     def get_messages_by_conversation_id(self, database : Session, conversation_id : str, user_id : str) -> list[Message]:
-        messages : list[Message] = self.repository.get_messages_summaries_by_user_id(database=database, conversation_id=conversation_id, user_id=user_id)
+        messages : list[Message] = self.repository.get_messages_by_conversation_id(database=database, conversation_id=conversation_id, user_id=user_id)
 
         return messages
     

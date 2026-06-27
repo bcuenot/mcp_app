@@ -10,6 +10,7 @@ from services.messages_service import MessagesService
 from services.conversations_service import ConversationService
 from services.auth_service import AuthService, AuthenticationError, AuthenticationExpiredError, AuthenticationServerUnavailableError
 from models.message import MessageRole
+from models.message import Message
 from models.conversation import Conversation
 
 router = APIRouter()
@@ -46,7 +47,8 @@ async def chat(payload: ChatRequest, authorization: str | None = Header(default=
 
 
         mcp_access_token: str = await token_service.exchange_token_for_mcp(user_access_token)
-        answer: str = await agent_service.ask(message=payload.message, mcp_access_token=mcp_access_token)
+        history_messages : list[Message] = message_service.get_messages_by_conversation_id(database=database, conversation_id=conversation_id, user_id=user_id)
+        answer: str = await agent_service.ask(message=payload.message, history_messages=history_messages, mcp_access_token=mcp_access_token)
 
         user_message = message_service.create_message(
             database=database,
