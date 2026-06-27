@@ -31,7 +31,7 @@ class AgentService:
         self.mcp_server_url = mcp_server_url or os.environ["MCP_SERVER_URL"]
         self.system_prompt = system_prompt
         self.max_history_messages = max_history_messages
-        model_name = model or os.getenv("LLM_MODEL","gemini-2.5-flash")
+        model_name = model or os.getenv("LLM_MODEL","gemini-2.5-flash-lite")
         model_temperature = (
             temperature
             if temperature is not None
