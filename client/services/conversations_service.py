@@ -22,6 +22,13 @@ class ConversationService:
 
         return conversation
     
+    def delete_conversation(self, database : Session, conversation_id : str, user_id : str) -> bool:     
+        is_conversation_deleted : bool = self.repository.delete_conversation(database=database, conversation_id=conversation_id, user_id=user_id)
+
+        return is_conversation_deleted
+
+
+    
         
 
     

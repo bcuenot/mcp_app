@@ -32,6 +32,12 @@ class UpdateConversationTitleResponse(BaseModel):
     id : str
     title : str
 
+class DeleteConversationReponse(BaseModel):
+    conversation_id : str
+    deleted : bool
+    message : str
+
+
 @router.get("/conversations", response_model = list[ConversationSummary])
 def conversations(authorization: str | None = Header(default=None), database: Session = Depends(get_db)):
     access_token : str = extract_bearer_token(authorization=authorization)
@@ -100,6 +106,42 @@ def update_conversation_id(conversation_id : str, payload: UpdateConversationTit
         )
 
         return conversation
+    
+    except AuthenticationExpiredError as error:
+        raise HTTPException(
+            status_code=401,
+            detail=str(error),
+        ) from error
+
+    except AuthenticationError as error:
+        raise HTTPException(
+            status_code=401,
+            detail=str(error),
+        ) from error
+
+    except AuthenticationServerUnavailableError as error:
+        raise HTTPException(
+            status_code=503,
+            detail=str(error),
+        ) from error
+    
+
+@router.delete("/conversations/{conversation_id}", response_model= DeleteConversationReponse)
+def delete_conversation(conversation_id : str, authorization : str | None = Header(default=None), database: Session = Depends(get_db)):
+    access_token : str = extract_bearer_token(authorization=authorization)
+    try:
+        user_id : str = auth_service.get_user_id(access_token=access_token)
+        is_conversation_deleted : bool = conversation_service.delete_conversation(
+            database=database, 
+            conversation_id=conversation_id, 
+            user_id=user_id, 
+        )
+
+        return {
+            "conversation_id" : conversation_id,
+            "deleted" : is_conversation_deleted,
+            "message" : "Conversation supprimée "
+        }
     
     except AuthenticationExpiredError as error:
         raise HTTPException(

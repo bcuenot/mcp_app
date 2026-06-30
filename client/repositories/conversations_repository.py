@@ -45,3 +45,22 @@ class ConversationRepository:
         database.refresh(conversation)
 
         return conversation
+
+    def delete_conversation(self, database : Session, conversation_id : str, user_id) -> bool:
+        statement = (
+            select(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+
+        conversation : Conversation | None = database.scalars(statement).first()
+
+        if conversation is None :
+            return False
+        
+        database.delete(conversation)
+        database.commit()
+
+        return True

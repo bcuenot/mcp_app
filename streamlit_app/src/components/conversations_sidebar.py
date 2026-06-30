@@ -111,7 +111,8 @@ def render_user_sidebar(mcp_client : McpClientApi) -> None:
                         st.session_state["renaiming_conversation_id"] = conversation["id"]
     
                     if st.button(label="Supprimer",key=f"delete_{conversation['id']}", width="stretch", icon=":material/delete:"):
-                        st.markdown("Hello")
+                        mcp_client.delete_conversation(conversation_id=conversation["id"])
+                        st.rerun()
         
         st.divider()
         if st.button("Se déconnecter", use_container_width=True, icon=":material/logout:"):

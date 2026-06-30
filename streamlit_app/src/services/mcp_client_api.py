@@ -108,3 +108,26 @@ class McpClientApi:
         response = response.json()
     
         return response
+    
+    def delete_conversation(self, conversation_id : str) -> str:
+        access_token = st.user.tokens["access"]
+        response = requests.delete(
+            f"{self.base_url}/conversations/{conversation_id}",
+            headers={"Authorization": f"Bearer {access_token}"},
+            timeout=self.timeout
+        )
+
+        if response.status_code == 401:
+            raise AuthenticationExpiredError(
+                f"Authentification refusée : {response.text}"
+            )
+
+        if response.status_code >= 400:
+            raise McpClientApiError(
+                "Erreur HTTP backend client MCP : "
+                f"{response.status_code} - {response.text}"
+            )
+        
+        response = response.json()
+    
+        return response
