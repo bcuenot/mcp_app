@@ -109,7 +109,6 @@ def render_user_sidebar(mcp_client : McpClientApi) -> None:
                 with st.popover("", width="content", type="tertiary"):
                     if st.button(label="Renommer", key=f"rename_{conversation['id']}", width="stretch", icon=":material/edit:"):
                         st.session_state["renaiming_conversation_id"] = conversation["id"]
-                        st.rerun()
     
                     if st.button(label="Supprimer",key=f"delete_{conversation['id']}", width="stretch", icon=":material/delete:"):
                         st.markdown("Hello")
