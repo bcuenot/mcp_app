@@ -8,7 +8,7 @@ def render_session_expired_dialog() -> None:
         st.logout()
 
 def render_chat(mcp_client : McpClientApi) -> None:
-    st.title("Chatbot MCP")
+    st.title("Chatbot MCP", text_alignment="center")
     if "messages" not in st.session_state:
         st.session_state.messages = []
     

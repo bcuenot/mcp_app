@@ -17,6 +17,11 @@ class ConversationService:
 
         return conversation
     
+    def update_conversation_title(self, database : Session, conversation_id : str, user_id : str, new_conversation_title : str) -> Conversation | None:
+        conversation : Conversation = self.repository.update_conversation_title(database=database, conversation_id=conversation_id, user_id=user_id, new_conversation_title=new_conversation_title)
+
+        return conversation
+    
         
 
     

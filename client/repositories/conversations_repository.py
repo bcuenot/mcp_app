@@ -23,3 +23,25 @@ class ConversationRepository:
         database.refresh(conversation)
 
         return conversation 
+    
+    def update_conversation_title(self, database : Session, conversation_id : str, user_id : str, new_conversation_title : str) -> Conversation | None:
+        statement = (
+            select(Conversation)
+            .where(
+                Conversation.id == conversation_id,
+                Conversation.user_id == user_id,
+            )
+        )
+
+        conversation : Conversation | None = database.scalars(statement).first()
+
+        if conversation is None :
+            return None
+        
+        conversation.title = new_conversation_title
+
+        database.add(conversation)
+        database.commit()
+        database.refresh(conversation)
+
+        return conversation
