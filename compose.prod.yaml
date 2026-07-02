@@ -1,21 +1,5 @@
 services:
 
-  reverse-proxy:
-    image: caddy:2
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile.prod:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - streamlit
-      - keycloak
-    restart: unless-stopped
-    networks:
-      - edge
-
   keycloak:
     image: quay.io/keycloak/keycloak:26.6.2
     command: start
@@ -37,9 +21,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     networks:
-      - edge
-      - auth
-      - data
+      auth:
+      data:
+      mcp_edge:
+          aliases:
+          - mcp-keycloak
 
   postgres:
     image: postgres:16
@@ -126,14 +112,13 @@ services:
       - mcp-client
     restart: unless-stopped
     networks:
-      - edge
-      - app
-      - auth
+      app:
+      auth:
+      mcp_edge:
+          aliases:
+          - mcp-streamlit
 
 networks:
-  edge:
-    driver: bridge
-
   app:
     driver: bridge
 
@@ -145,6 +130,9 @@ networks:
 
   data:
     driver: bridge
+  
+  mcp_edge:
+    external: true
 
 volumes:
   caddy_data:
