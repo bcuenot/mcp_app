@@ -18,16 +18,20 @@ def render_chat(mcp_client : McpClientApi) -> None:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("What is up?"):
-        st.session_state.messages.append({"role": "user", "content": prompt})
-
+    if prompt := st.chat_input(placeholder="What is up?", accept_file="multiple", file_type=["pdf"], accept_audio=True):
+        st.session_state.messages.append({"role": "user", "content": prompt.text})
+          
         with st.chat_message("user"):
-            st.markdown(prompt)
+            if prompt.text:
+                st.markdown(prompt.text)
+            if prompt.files:
+                for file in prompt.files:
+                    st.caption(f"{file.name}")
 
         with st.chat_message("assistant"):
             with st.spinner("Le client MCP réfléchit..."):
                 try:
-                    response = mcp_client.send_message(prompt=prompt, conversation_id=conversation_id)
+                    response = mcp_client.send_message(prompt=prompt.text, conversation_id=conversation_id, files=prompt.files)
                     if conversation_id is None:
                         conversation_id = response["conversation_id"]
                         st.session_state.current_conversation_id = conversation_id

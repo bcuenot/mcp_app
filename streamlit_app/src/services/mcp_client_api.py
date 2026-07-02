@@ -15,13 +15,29 @@ class McpClientApi:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
 
-    def send_message(self, prompt: str, conversation_id) -> str:
+    def send_message(self, prompt: str, conversation_id, files : list | None) -> str:
         access_token = st.user.tokens["access"]
+        data = { "message" : prompt, "conversation_id" : conversation_id}
+
+        request_files = []
+        for file in files or []:
+            request_files.append(
+                (
+                    "files",
+                    (
+                        file.name,
+                        file.getvalue(),
+                        file.type or "application/octet-stream",
+                    )
+                )
+            )
+
         response = requests.post(
             f"{self.base_url}/chat",
-            json={"message": prompt, "conversation_id" : conversation_id},
+            data=data,
+            files=request_files,
             headers={"Authorization": f"Bearer {access_token}"},
-            timeout=self.timeout
+            timeout=self.timeout,
         )
 
         if response.status_code == 401:

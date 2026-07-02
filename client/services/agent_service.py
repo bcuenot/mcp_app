@@ -5,6 +5,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from models.message import MessageRole
 from models.message import Message
+from fastapi import UploadFile
 
 
 class AgentServiceError(Exception):
@@ -22,8 +23,8 @@ class AgentService:
         system_prompt: str = (
             "Tu es un assistant utile. "
             "Tu vas reçevoir un message ainsi que l'historique des messages d'avant."
-            "Tu peux utiliser les outils MCP disponibles "
-            "quand c'est pertinent. "
+            "Tu peux également reçevoir dans certains cas du contenu texte de fichiers PDF"
+            "Tu peux utiliser les outils MCP disponibles si nécessaire quand c'est pertinent"
             "Réponds en français."
         ),
     ):
@@ -59,8 +60,11 @@ class AgentService:
             }
         )
     
-    def _build_agent_messages(self, message : str, history_messages : list[Message]) -> list[dict[str, str]]:
+    def _build_agent_messages(self, message : str, files_content : str | None, history_messages : list[Message]) -> list[dict[str, str]]:
         
+        if files_content:
+            message = message + files_content
+
         history_messages = history_messages[-self.max_history_messages:]
         allowed_roles = {
                 MessageRole.USER.value,
@@ -122,13 +126,13 @@ class AgentService:
 
         return str(content)
 
-    async def ask(self, message: str, history_messages : list[Message], mcp_access_token: str) -> str:
+    async def ask(self, message: str, files_content : str | None, history_messages : list[Message], mcp_access_token: str) -> str:
         try:
             client : MultiServerMCPClient = self._build_mcp_client(mcp_access_token)
             tools = await client.get_tools()
             agent = create_agent(self._llm, tools=tools, system_prompt=self.system_prompt)
 
-            agent_messages : list[dict[str, str]] = self._build_agent_messages(message=message, history_messages=history_messages)
+            agent_messages : list[dict[str, str]] = self._build_agent_messages(message=message, files_content=files_content, history_messages=history_messages)
             response : dict = await agent.ainvoke(
                 {
                     "messages": agent_messages

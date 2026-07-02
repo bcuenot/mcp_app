@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Header, HTTPException, Depends
+from fastapi import APIRouter, File, Form, UploadFile, Header, Depends, HTTPException
 from pydantic import BaseModel, Field
 from dependencies.auth import extract_bearer_token
 
@@ -9,6 +9,7 @@ from services.token_service import TokenService, TokenExchangeError
 from services.messages_service import MessagesService
 from services.conversations_service import ConversationService
 from services.auth_service import AuthService, AuthenticationError, AuthenticationExpiredError, AuthenticationServerUnavailableError
+from services.files_service import FilesService, FilesError
 from models.message import MessageRole
 from models.message import Message
 from models.conversation import Conversation
@@ -19,43 +20,46 @@ auth_service = AuthService()
 token_service = TokenService()
 message_service = MessagesService()
 conversation_service = ConversationService()
-
-class ChatRequest(BaseModel):
-    message: str = Field(min_length=1)
-    conversation_id : str | None = None
+files_service = FilesService()
 
 class ChatResponse(BaseModel):
     message: str
     conversation_id : str
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest, authorization: str | None = Header(default=None), database: Session = Depends(get_db)):
+async def chat(
+    message : str = Form(...), 
+    conversation_id : str | None = Form(default=None),
+    files : list[UploadFile] | None = Form(default=None),
+    authorization: str | None = Header(default=None), 
+    database: Session = Depends(get_db)):
 
     user_access_token: str = extract_bearer_token(authorization)
+    if files:
+        for file in files:
+            print(file)
 
     try:
         user_id: str = auth_service.get_user_id(access_token=user_access_token)
-        if payload.conversation_id is None:
+        if conversation_id is None:
             conversation : Conversation = conversation_service.create_conversation(
                 database=database,
                 user_id=user_id,
-                title=payload.message[:20],
+                title=message[:20],
             )
             conversation_id = conversation.id
-        else:
-            conversation_id = payload.conversation_id
-
 
         mcp_access_token: str = await token_service.exchange_token_for_mcp(user_access_token)
         history_messages : list[Message] = message_service.get_messages_by_conversation_id(database=database, conversation_id=conversation_id, user_id=user_id)
-        answer: str = await agent_service.ask(message=payload.message, history_messages=history_messages, mcp_access_token=mcp_access_token)
+        files_content : str | None = await files_service.build_files_context(files=files)
+        answer: str = await agent_service.ask(message=message, files_content=files_content, history_messages=history_messages, mcp_access_token=mcp_access_token)
 
         user_message = message_service.create_message(
             database=database,
             conversation_id=conversation_id,
             user_id=user_id,
             role=MessageRole.USER,
-            content=payload.message,
+            content=message,
         )
 
         if user_message is None:

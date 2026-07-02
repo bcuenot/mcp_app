@@ -10,3 +10,5 @@ python-dotenv
 PyJWT[crypto]
 SQLAlchemy
 psycopg[binary]
+pypdf
+python-multipart
